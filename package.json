@@ -1,0 +1,15 @@
+{
+  "name": "rank-reaper",
+  "version": "0.0.1",
+  "description": "A tool to scrape MMR and game stats using Bun and Puppeteer.",
+  "main": "rank-reaper.js",
+  "scripts": {
+    "start": "bun run rank-reaper.js"
+  },
+  "author": "Jared Meadows",
+  "license": "MIT",
+  "dependencies": {
+    "clipboardy": "^4.0.0",
+    "puppeteer": "^24.6.1"
+  }
+}
