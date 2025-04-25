@@ -10,6 +10,6 @@
 	"license": "MIT",
 	"dependencies": {
 		"clipboardy": "^4.0.0",
-		"puppeteer": "^24.6.1"
+		"puppeteer": "^24.7.2"
 	}
 }
