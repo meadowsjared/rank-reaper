@@ -186,84 +186,28 @@ async function getGames(
  * @returns {Promise<Array>} - A promise that resolves to an array of results.
  */
 async function processWithConcurrency(browser, urls, concurrencyLimit = 10) {
-	const results = [];
-	const running = []; // Tracks the currently running tasks
+	const results = new Array(urls.length);
 	let taskIndex = 0;
-	// let tempIndex = 0;
 
-	async function runTask(task, url, taskIndex) {
+	const runNext = async () => {
+		if (taskIndex >= urls.length) return;
+		const currentIndex = taskIndex++;
 		try {
-			const result = await task(browser, url, taskIndex); // Execute the asynchronous task
-			return result; // Store the result in the correct order
+			const result = await scrapePlayerStats(browser, urls[currentIndex], currentIndex);
+			results[currentIndex] = result;
 		} catch (error) {
-			console.error(`Error processing URL at taskIndex ${taskIndex}: ${error.message}`);
-			return { qmMmr: 'Error', slMmr: 'Error', qmGames: 'Error', slGames: 'Error' }; // Handle errors gracefully
-		} finally {
-			// Remove the completed task from the running array
-			const runningIndex = running.indexOf(taskIndex);
-			if (runningIndex !== -1) {
-				running.splice(runningIndex, 1);
-			} else {
-				console.error(`Task ${taskIndex} not found in running tasks.`);
-			}
-			console.log(`Task ${taskIndex} completed. Running tasks: ${running.length}`);
-
-			// // If there are more urls and the running queue has space, start the next one
-			// if (taskIndex < urls.length && running.size < concurrencyLimit && tempIndex < 10) {
-			// 	const task = runTask(scrapePlayerStats, urls[taskIndex], taskIndex);
-			// 	running.add(task);
-			// 	results[taskIndex] = task; // Store the result in the correct order
-			// 	taskIndex++;
-			// 	tempIndex++;
-			// }
+			console.error(`Error processing URL at index ${currentIndex}: ${error.message}`);
+			results[currentIndex] = { qmMmr: 'Error', slMmr: 'Error', qmGames: 'Error', slGames: 'Error' };
 		}
-	}
+		await runNext(); // Recursively kick off the next task
+	};
 
-	// Start the initial batch of tasks
-	while (taskIndex < urls.length || running.length > 0) {
-		while (running.length < Math.min(urls.length, concurrencyLimit) && taskIndex < urls.length) {
-			const taskPromise = runTask(scrapePlayerStats, urls[taskIndex], taskIndex);
-			running.push(taskIndex);
-			results[taskIndex] = taskPromise; // Store the promise in the results array
-			// results[taskIndex] = task; // Store the result in the correct order
-			console.log(`A.Starting task ${taskIndex}...`);
-			taskIndex++;
-			console.log(
-				'1.taskIndex',
-				taskIndex,
-				'running',
-				running.length,
-				'concurrencyLimit',
-				concurrencyLimit,
-				'urls.length:',
-				urls.length,
-				running
-			);
-		}
-		// Wait for all currently running tasks to complete before continuing.
-		// New tasks are added dynamically in the `runTask` function.
-		// sleep for 1 second
-		console.log('Waiting for a task to finish...');
-		await Promise.race(results); // Wait for the first running task to complete
-		await new Promise(resolve => setTimeout(resolve, 1000));
-		console.log('done waiting for a task to finish...');
-		// sleep 1 second
+	// Start the concurrent workers
+	const workers = Array(Math.min(concurrencyLimit, urls.length))
+		.fill(0)
+		.map(() => runNext());
 
-		// Log the current state
-		// console.log(
-		// 	'B.taskIndex',
-		// 	taskIndex,
-		// 	'running',
-		// 	running.length,
-		// 	'concurrencyLimit',
-		// 	concurrencyLimit,
-		// 	'urls.length:',
-		// 	urls.length,
-		// 	running
-		// );
-	}
-
-	return Promise.all(results);
+	return await Promise.all(workers).then(() => results);
 }
 
 /**
@@ -363,7 +307,7 @@ async function main() {
 		// multithreaded the scraping process
 
 		const enableConcurrency = true; // Set to true to enable concurrency
-		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 5); // Adjust concurrency limit as needed
+		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 10); // Adjust concurrency limit as needed
 
 		await browser.close();
 		console.log(`allStats: ${allStats}, length: ${allStats.length}`);
