@@ -1,5 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import clipboardy from 'clipboardy'; // Using import now
+import { PlayerData } from './types'; // Assuming you have a types.ts file for type definitions
 
 async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 	const page = await browser.newPage();
@@ -187,12 +188,17 @@ async function getGames(
 
 /**
  * Processes an array of tasks with a concurrency limit.
- * @param {Array<Function>} urls - An array of functions that return promises.
+ * @param {puppeteer.Browser} browser - The Puppeteer browser instance.
+ * @param {Array<string>} urls - An array of URLs to process.
  * @param {number} concurrencyLimit - The maximum number of concurrent tasks.
  * @returns {Promise<Array>} - A promise that resolves to an array of results.
  */
-async function processWithConcurrency(browser: Browser, urls: string[], concurrencyLimit = 10) {
-	const results = new Array(urls.length);
+async function processWithConcurrency(
+	browser: Browser,
+	urls: string[],
+	concurrencyLimit: number = 10
+): Promise<Array<any>> {
+	const results: PlayerData[] = [];
 	let taskIndex = 0;
 
 	const runNext = async () => {
@@ -224,23 +230,23 @@ async function processWithConcurrency(browser: Browser, urls: string[], concurre
  * @param {number} concurrencyLimit - The maximum number of concurrent tasks.
  * @returns {Promise<Array>} - A promise that resolves to an array of player stats.
  */
-async function getPlayerStats(
-	browser: Browser,
-	playerUrls: string[],
-	enableConcurrency: boolean,
-	concurrencyLimit = 10
-) {
-	if (enableConcurrency) {
-		console.log('Concurrency enabled');
-		return processWithConcurrency(browser, playerUrls, concurrencyLimit); // Adjust concurrency limit as needed
-	} else {
-		console.log('Concurrency disabled');
-		const allStatsProm = playerUrls.map((url, index) => {
-			// call the scrapePlayerStats function for each url
-			return scrapePlayerStats(browser, url, index);
-		});
-		return Promise.all(allStatsProm);
-	}
+async function getPlayerStatsWithConcurrency(browser: Browser, playerUrls: string[], concurrencyLimit = 10) {
+	console.log('Concurrency enabled');
+	return processWithConcurrency(browser, playerUrls, concurrencyLimit); // Adjust concurrency limit as needed
+}
+
+/**
+ * gets the player stats for a single player, without concurrency
+ * @param browser
+ * @param playerUrls
+ * @returns
+ */
+async function processWithoutConcurrency(browser: Browser, playerUrls: string[]): Promise<PlayerData[]> {
+	const allStatsProm = playerUrls.map((url, index) => {
+		// call the scrapePlayerStats function for each url
+		return scrapePlayerStats(browser, url, index);
+	});
+	return Promise.all(allStatsProm);
 }
 
 async function main() {
@@ -305,7 +311,9 @@ async function main() {
 		// multithreaded the scraping process
 
 		const enableConcurrency = true; // Set to true to enable concurrency
-		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 5); // Adjust concurrency limit as needed
+		const allStats = enableConcurrency
+			? await processWithConcurrency(browser, playerUrls, 5)
+			: await processWithoutConcurrency(browser, playerUrls); // Adjust concurrency limit as needed
 
 		await browser.close();
 
