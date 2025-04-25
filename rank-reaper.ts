@@ -306,9 +306,7 @@ async function main() {
 			return;
 		}
 
-		// singlethreaded the scraping process
 		const browser = await puppeteer.launch({ headless: true });
-		// multithreaded the scraping process
 
 		const enableConcurrency = true; // Set to true to enable concurrency
 		const allStats = enableConcurrency
