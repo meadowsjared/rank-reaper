@@ -99,20 +99,20 @@ function extractPlayerId(url: string) {
 
 /**
  * fetches the number of wins and losses for the current player
- *
  * @param {string} playerId - The player ID to be used in the screenshot filename.
  * @param {puppeteer.Page} page - The Puppeteer page instance.
- * @param {string} gameTypeDropdown - The selector for the game type dropdown.
- * @param {string} gameTypeSelector - The selector for the game type option.
- * @param {string} filterButton - The selector for the filter button.
- * @param {string} winsSelector - The selector for the wins element.
- * @param {string} lossesSelector - The selector for the losses element.
- * @param {string} noDataSelector - The selector for the no data element.
- * @param {string} label - A label to identify the game type (e.g., 'QM' or 'SL').
+ * @param {Selectors} selectors - The selectors object containing the CSS selectors for the page elements.
+ * @param {'qm' | 'sl'} label - The game type label ('qm' for Quick Match, 'sl' for Storm League).
  * @param {number} index - The index of the player in the list.
- * @returns {Promise<{ games: number, wins: number, losses: number }>} - An object containing the number of games, wins, and losses.
+ * @returns {Promise<{games: number;wins: number;losses: number;}>} - An object containing the number of games, wins, and losses.
  */
-async function getGames(playerId: string, page: Page, selectors: Selectors, label: 'qm' | 'sl', index: number) {
+async function getGames(
+	playerId: string,
+	page: Page,
+	selectors: Selectors,
+	label: 'qm' | 'sl',
+	index: number
+): Promise<{ games: number; wins: number; losses: number }> {
 	// run this up to 5 times max
 	let attempts = 0;
 	const maxAttempts = 5;
@@ -195,19 +195,6 @@ async function processWithConcurrency(
 		.map(() => runNext());
 
 	return await Promise.all(workers).then(() => results);
-}
-
-/**
- * Fetches player stats from a list of URLs.
- * @param {puppeteer.Browser} browser - The Puppeteer browser instance.
- * @param {Array<string>} playerUrls - An array of player URLs.
- * @param {boolean} enableConcurrency - Whether to enable concurrency.
- * @param {number} concurrencyLimit - The maximum number of concurrent tasks.
- * @returns {Promise<Array>} - A promise that resolves to an array of player stats.
- */
-async function getPlayerStatsWithConcurrency(browser: Browser, playerUrls: string[], concurrencyLimit = 10) {
-	console.log('Concurrency enabled');
-	return processWithConcurrency(browser, playerUrls, concurrencyLimit); // Adjust concurrency limit as needed
 }
 
 /**
