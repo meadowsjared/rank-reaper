@@ -1,15 +1,12 @@
-import puppeteer, { Browser, Page, WaitForSelectorOptions } from 'puppeteer';
+import puppeteer, { Browser, Page } from 'puppeteer';
 import clipboardy from 'clipboardy'; // Using import now
 
 async function scrapePlayerStats(browser: Browser, url: string, index: number) {
-	// const localBrowser = await puppeteer.launch({ headless: 'new' });
 	const page = await browser.newPage();
 	const playerName = extractPlayerId(url);
 
 	// log out the url and the index
 	console.log(`${index}: ${playerName}: Navigating to: ${url}`);
-	// console.log(`${index}: URL parts: ${urlParts}`);
-	// const playerId = urlParts[3] === 'Player' ? urlParts[4] : urlParts[5];
 
 	const qmMmrSelector =
 		'#app > div:nth-child(8) > div:nth-child(4) > div:nth-child(5) > div.mx-auto > div:nth-child(1) > div:nth-child(4) > div > div';
@@ -37,11 +34,11 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 				attempts++;
 				await page.goto(url, { waitUntil: 'networkidle2' });
 				await page.waitForSelector(qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
-				qmMmr = (await page.$eval(qmMmrSelector, el => el?.textContent?.trim() || 'None').catch(() => 'None')).replace(
+				qmMmr = (await page.$eval(qmMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(
 					/,/g,
 					''
 				);
-				slMmr = (await page.$eval(slMmrSelector, el => el?.textContent?.trim() || 'None').catch(() => 'None')).replace(
+				slMmr = (await page.$eval(slMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(
 					/,/g,
 					''
 				);
@@ -109,9 +106,9 @@ function extractPlayerId(url: string) {
 	const playerRegex = /(?:Player\/([^/]+)\/\d+\/|battletag\/searched\/([^%#]+)(?:%23|#)\d+\/alt)/;
 	const match = url.match(playerRegex);
 
-	if (match && match[1]) {
+	if (match?.[1]) {
 		return match[1]; // Player name from /Player/
-	} else if (match && match[2]) {
+	} else if (match?.[2]) {
 		return match[2]; // Battletag name before the #
 	} else {
 		console.error(`No player ID found in URL: ${url}`);
@@ -152,20 +149,11 @@ async function getGames(
 	while (attempts < maxAttempts) {
 		try {
 			attempts++;
-			// console.log(`${index}: awaiting gameTypeDropdown`);
 			await page.click(gameTypeDropdown);
-			// console.log(`${index}: waiting for gameTypeSelector`);
 			await page.waitForSelector(gameTypeSelector, { timeout: 60000 }); // Wait up to 60 seconds
 			await page.click(gameTypeSelector);
-			// console.log(`${index}: waiting for gameTypeSelector to be detached`);\
-			// const options: WaitForSelectorOptions = { detached: true, timeout: 5000 };
-
-			// const options: WaitForSelectorOptions = { hidden: true, timeout: 5000 };
-			// await page.waitForSelector(gameTypeSelector, options);
 
 			await page.click(filterButton);
-			// console.log('Waiting for winsSelector selector...');
-			// console.log(`${index}: waiting for winsSelector, or noDataSelector`);
 			await Promise.race([
 				page.waitForSelector(winsSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
 				page.waitForSelector(noDataSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
@@ -182,18 +170,15 @@ async function getGames(
 		}
 	}
 
-	// console.log('taking screenshot...');
 	await page.screenshot({ path: `./screenshots/screenshot_${playerId}_${label}.png` });
 	// wait for the QM games to load
-	// console.log('getting winsSelector selector...');
 	let wins =
 		parseInt(
-			(await page.$eval(winsSelector, el => el.textContent?.trim() || 'None').catch(() => 'None')).replace(/,/g, '')
+			(await page.$eval(winsSelector, el => el.textContent?.trim() ?? 'None').catch(() => 'None')).replace(/,/g, '')
 		) || 0;
-	// console.log('getting lossesSelector selector...');
 	let losses =
 		parseInt(
-			(await page.$eval(lossesSelector, el => el?.textContent?.trim() || 'None').catch(() => 'None')).replace(/,/g, '')
+			(await page.$eval(lossesSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(/,/g, '')
 		) || 0;
 
 	const games = wins === 0 && losses === 0 ? -1 : wins + losses;
