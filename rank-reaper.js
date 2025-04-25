@@ -263,7 +263,7 @@ async function processWithConcurrency(browser, urls, concurrencyLimit = 10) {
 		// );
 	}
 
-	return results;
+	return Promise.all(results);
 }
 
 /**
@@ -277,8 +277,7 @@ async function processWithConcurrency(browser, urls, concurrencyLimit = 10) {
 async function getPlayerStats(browser, playerUrls, enableConcurrency, concurrencyLimit = 10) {
 	if (enableConcurrency) {
 		console.log('Concurrency enabled');
-		const allStatsProm = processWithConcurrency(browser, playerUrls, concurrencyLimit); // Adjust concurrency limit as needed
-		return Promise.all(allStatsProm);
+		return processWithConcurrency(browser, playerUrls, concurrencyLimit); // Adjust concurrency limit as needed
 	} else {
 		console.log('Concurrency disabled');
 		const allStatsProm = playerUrls.map((url, index) => {
@@ -364,7 +363,7 @@ async function main() {
 		// multithreaded the scraping process
 
 		const enableConcurrency = true; // Set to true to enable concurrency
-		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 10); // Adjust concurrency limit as needed
+		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 5); // Adjust concurrency limit as needed
 
 		await browser.close();
 		console.log(`allStats: ${allStats}, length: ${allStats.length}`);
