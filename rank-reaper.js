@@ -266,6 +266,29 @@ async function processWithConcurrency(browser, urls, concurrencyLimit = 10) {
 	return results;
 }
 
+/**
+ * Fetches player stats from a list of URLs.
+ * @param {puppeteer.Browser} browser - The Puppeteer browser instance.
+ * @param {Array<string>} playerUrls - An array of player URLs.
+ * @param {boolean} enableConcurrency - Whether to enable concurrency.
+ * @param {number} concurrencyLimit - The maximum number of concurrent tasks.
+ * @returns {Promise<Array>} - A promise that resolves to an array of player stats.
+ */
+async function getPlayerStats(browser, playerUrls, enableConcurrency, concurrencyLimit = 10) {
+	if (enableConcurrency) {
+		console.log('Concurrency enabled');
+		const allStatsProm = processWithConcurrency(browser, playerUrls, concurrencyLimit); // Adjust concurrency limit as needed
+		return Promise.all(allStatsProm);
+	} else {
+		console.log('Concurrency disabled');
+		const allStatsProm = playerUrls.map((url, index) => {
+			// call the scrapePlayerStats function for each url
+			return scrapePlayerStats(browser, url, index);
+		});
+		return Promise.all(allStatsProm);
+	}
+}
+
 async function main() {
 	try {
 		// if the screenshots directory doesn't exist, create it
@@ -339,13 +362,9 @@ async function main() {
 		// singlethreaded the scraping process
 		const browser = await puppeteer.launch({ headless: 'new' });
 		// multithreaded the scraping process
-		// const allStats = await processWithConcurrency(browser, playerUrls, 3); // Adjust concurrency limit as needed
 
-		const allStatsProm = playerUrls.map((url, index) => {
-			// call the scrapePlayerStats function for each url
-			return scrapePlayerStats(browser, url, index);
-		});
-		const allStats = await Promise.all(allStatsProm); // Wait for all scraping tasks to complete
+		const enableConcurrency = true; // Set to true to enable concurrency
+		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 10); // Adjust concurrency limit as needed
 
 		await browser.close();
 		console.log(`allStats: ${allStats}, length: ${allStats.length}`);
