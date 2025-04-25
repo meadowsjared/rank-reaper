@@ -1,6 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import clipboardy from 'clipboardy'; // Using import now
-import { PlayerData } from './types'; // Assuming you have a types.ts file for type definitions
+import { PlayerData, Selectors } from './types'; // Assuming you have a types.ts file for type definitions
 
 async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 	const page = await browser.newPage();
@@ -23,6 +23,17 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 		'#app > div:nth-child(8) > div:nth-child(4) > div.flex.md\\:p-20.gap-10.mx-auto.justify-center.items-between.max-md\\:flex-col.max-md\\:items-center > div.flex-1.flex.flex-wrap.justify-between.max-w-\\[400px\\].w-full.items-between.mt-\\[1em\\].max-md\\:order-1 > div:nth-child(2) > div > div';
 	const noDataSelector =
 		'#app > div:nth-child(8) > div.flex.md\\:p-20.gap-10.mx-auto.justify-center.items-between > div > span';
+	const selectors: Selectors = {
+		qmMmrSelector,
+		slMmrSelector,
+		gameTypeDropdown,
+		qmGameTypeSelector,
+		slGameTypeSelector,
+		filterButton,
+		winsSelector,
+		lossesSelector,
+		noDataSelector,
+	};
 
 	try {
 		let qmMmr = 'None';
@@ -35,15 +46,13 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 				attempts++;
 				await page.goto(url);
 				await page.waitForNetworkIdle();
-				await page.waitForSelector(qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
-				qmMmr = (await page.$eval(qmMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(
-					/,/g,
-					''
-				);
-				slMmr = (await page.$eval(slMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(
-					/,/g,
-					''
-				);
+				await page.waitForSelector(selectors.qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
+				qmMmr = (
+					await page.$eval(selectors.qmMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')
+				).replace(/,/g, '');
+				slMmr = (
+					await page.$eval(selectors.slMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')
+				).replace(/,/g, '');
 			} catch (error: any) {
 				if (error.name === 'TimeoutError') {
 					console.log(`${index}: Timeout while waiting for MMR selectors.`);
@@ -56,41 +65,11 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 		await page.setViewport({ width: 1920, height: 1080 });
 
 		// call the get games function
-		const {
-			games: qmGames,
-			wins: qmWins,
-			losses: qmLosses,
-		} = await getGames(
-			playerName,
-			page,
-			gameTypeDropdown,
-			qmGameTypeSelector,
-			filterButton,
-			winsSelector,
-			lossesSelector,
-			noDataSelector,
-			'QM',
-			index
-		);
+		const { games: qmGames, wins: qmWins, losses: qmLosses } = await getGames(playerName, page, selectors, 'qm', index);
 		console.log(`${index} QM: ${playerName}: QM Games: ${qmGames} = ${qmWins} + ${qmLosses}`);
 
 		// call the get games function
-		const {
-			games: slGames,
-			wins: slWins,
-			losses: slLosses,
-		} = await getGames(
-			playerName,
-			page,
-			gameTypeDropdown,
-			slGameTypeSelector,
-			filterButton,
-			winsSelector,
-			lossesSelector,
-			noDataSelector,
-			'SL',
-			index
-		);
+		const { games: slGames, wins: slWins, losses: slLosses } = await getGames(playerName, page, selectors, 'sl', index);
 		console.log(`${index} SL: ${playerName}: SL Games: ${slGames} = ${slWins} + ${slLosses}`);
 
 		await page.close();
@@ -133,32 +112,21 @@ function extractPlayerId(url: string) {
  * @param {number} index - The index of the player in the list.
  * @returns {Promise<{ games: number, wins: number, losses: number }>} - An object containing the number of games, wins, and losses.
  */
-async function getGames(
-	playerId: string,
-	page: Page,
-	gameTypeDropdown: string,
-	gameTypeSelector: string,
-	filterButton: string,
-	winsSelector: string,
-	lossesSelector: string,
-	noDataSelector: string,
-	label: string,
-	index: number
-) {
+async function getGames(playerId: string, page: Page, selectors: Selectors, label: 'qm' | 'sl', index: number) {
 	// run this up to 5 times max
 	let attempts = 0;
 	const maxAttempts = 5;
 	while (attempts < maxAttempts) {
 		try {
 			attempts++;
-			await page.click(gameTypeDropdown);
-			await page.waitForSelector(gameTypeSelector, { timeout: 60000 }); // Wait up to 60 seconds
-			await page.click(gameTypeSelector);
+			await page.click(selectors.gameTypeDropdown);
+			await page.waitForSelector(selectors[`${label}GameTypeSelector`], { timeout: 60000 }); // Wait up to 60 seconds
+			await page.click(selectors[`${label}GameTypeSelector`]);
 
-			await page.click(filterButton);
+			await page.click(selectors.filterButton);
 			await Promise.race([
-				page.waitForSelector(winsSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
-				page.waitForSelector(noDataSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
+				page.waitForSelector(selectors.winsSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
+				page.waitForSelector(selectors.noDataSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
 			]);
 			break;
 		} catch (error: any) {
@@ -172,15 +140,21 @@ async function getGames(
 		}
 	}
 
-	await page.screenshot({ path: `./screenshots/screenshot_${playerId}_${label}.png` });
+	await page.screenshot({ path: `./screenshots/screenshot_${playerId}_${label.toUpperCase()}.png` });
 	// wait for the QM games to load
 	let wins =
 		parseInt(
-			(await page.$eval(winsSelector, el => el.textContent?.trim() ?? 'None').catch(() => 'None')).replace(/,/g, '')
+			(await page.$eval(selectors.winsSelector, el => el.textContent?.trim() ?? 'None').catch(() => 'None')).replace(
+				/,/g,
+				''
+			)
 		) || 0;
 	let losses =
 		parseInt(
-			(await page.$eval(lossesSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(/,/g, '')
+			(await page.$eval(selectors.lossesSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(
+				/,/g,
+				''
+			)
 		) || 0;
 
 	const games = wins === 0 && losses === 0 ? -1 : wins + losses;

@@ -4,3 +4,15 @@ export interface PlayerData {
 	qmGames: number | string;
 	slGames: number | string;
 }
+
+export interface Selectors {
+	qmMmrSelector: string;
+	slMmrSelector: string;
+	gameTypeDropdown: string;
+	qmGameTypeSelector: string;
+	slGameTypeSelector: string;
+	filterButton: string;
+	winsSelector: string;
+	lossesSelector: string;
+	noDataSelector: string;
+}
