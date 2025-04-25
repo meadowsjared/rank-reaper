@@ -246,10 +246,6 @@ async function main() {
 		// https://www.heroesprofile.com/battletag/searched/Cav%2311360/alt
 		// https://www.heroesprofile.com/battletag/searched/ChairGlue%231201/alt
 		// https://www.heroesprofile.com/Player/Chandro/9078714/1`;
-		console.log('loading:');
-		console.log(`${clipboardText.split('\n').length} players`);
-		console.log(clipboardText);
-		console.log('');
 		const playerUrls = clipboardText
 			.split('\n')
 			.map(id => id.trim())
@@ -266,6 +262,11 @@ async function main() {
 			console.error('Invalid URLs found:');
 			invalidUrls.forEach(url => console.error(url));
 			return;
+		} else {
+			console.log('loading:');
+			console.log(`${clipboardText.split('\n').length} players`);
+			console.log(clipboardText);
+			console.log('');
 		}
 
 		const browser = await puppeteer.launch({ headless: true });
