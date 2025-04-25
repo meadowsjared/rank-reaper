@@ -1,14 +1,13 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser, Page, WaitForSelectorOptions } from 'puppeteer';
 import clipboardy from 'clipboardy'; // Using import now
 
-async function scrapePlayerStats(browser, url, index) {
+async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 	// const localBrowser = await puppeteer.launch({ headless: 'new' });
 	const page = await browser.newPage();
 	const playerName = extractPlayerId(url);
 
 	// log out the url and the index
 	console.log(`${index}: ${playerName}: Navigating to: ${url}`);
-	await page.goto(url, { waitUntil: 'networkidle2' });
 	// console.log(`${index}: URL parts: ${urlParts}`);
 	// const playerId = urlParts[3] === 'Player' ? urlParts[4] : urlParts[5];
 
@@ -31,21 +30,33 @@ async function scrapePlayerStats(browser, url, index) {
 		let qmMmr = 'None';
 		let slMmr = 'None';
 		// close the page
-		try {
-			await page.waitForSelector(qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
-			qmMmr = (await page.$eval(qmMmrSelector, el => el.textContent.trim()).catch(() => 'None')).replace(/,/g, '');
-			slMmr = (await page.$eval(slMmrSelector, el => el.textContent.trim()).catch(() => 'None')).replace(/,/g, '');
-		} catch (error) {
-			if (error.name === 'TimeoutError') {
-				console.log('Timeout while waiting for MMR selectors.');
-			} else {
-				console.error(`Error fetching MMR data: ${error.message}`);
+		let attempts = 0;
+		const maxAttempts = 5;
+		while (attempts < maxAttempts) {
+			try {
+				attempts++;
+				await page.goto(url, { waitUntil: 'networkidle2' });
+				await page.waitForSelector(qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
+				qmMmr = (await page.$eval(qmMmrSelector, el => el?.textContent?.trim() || 'None').catch(() => 'None')).replace(
+					/,/g,
+					''
+				);
+				slMmr = (await page.$eval(slMmrSelector, el => el?.textContent?.trim() || 'None').catch(() => 'None')).replace(
+					/,/g,
+					''
+				);
+			} catch (error: any) {
+				if (error.name === 'TimeoutError') {
+					console.log(`${index}: Timeout while waiting for MMR selectors.`);
+				} else {
+					console.error(`${index}: Error fetching MMR data: ${error.message}`);
+				}
 			}
 		}
 		console.log(`${index} MMR: ${playerName}: QM MMR: ${qmMmr}, SL MMR: ${slMmr}`);
 		await page.setViewport({ width: 1920, height: 1080 });
 
-		//TODO call the get games function
+		// call the get games function
 		const {
 			games: qmGames,
 			wins: qmWins,
@@ -64,7 +75,7 @@ async function scrapePlayerStats(browser, url, index) {
 		);
 		console.log(`${index} QM: ${playerName}: QM Games: ${qmGames} = ${qmWins} + ${qmLosses}`);
 
-		//TODO call the get games function
+		// call the get games function
 		const {
 			games: slGames,
 			wins: slWins,
@@ -85,7 +96,7 @@ async function scrapePlayerStats(browser, url, index) {
 
 		await page.close();
 		return { qmMmr, slMmr, qmGames, slGames };
-	} catch (error) {
+	} catch (error: any) {
 		// show the line number and the error message
 		console.error(`${index}: ${playerName}: Error scraping data for ${url}: ${error.message}`);
 		console.error(error);
@@ -94,7 +105,7 @@ async function scrapePlayerStats(browser, url, index) {
 	}
 }
 
-function extractPlayerId(url) {
+function extractPlayerId(url: string) {
 	const playerRegex = /(?:Player\/([^/]+)\/\d+\/|battletag\/searched\/([^%#]+)(?:%23|#)\d+\/alt)/;
 	const match = url.match(playerRegex);
 
@@ -102,6 +113,9 @@ function extractPlayerId(url) {
 		return match[1]; // Player name from /Player/
 	} else if (match && match[2]) {
 		return match[2]; // Battletag name before the #
+	} else {
+		console.error(`No player ID found in URL: ${url}`);
+		return '';
 	}
 }
 
@@ -121,29 +135,33 @@ function extractPlayerId(url) {
  * @returns {Promise<{ games: number, wins: number, losses: number }>} - An object containing the number of games, wins, and losses.
  */
 async function getGames(
-	playerId,
-	page,
-	gameTypeDropdown,
-	gameTypeSelector,
-	filterButton,
-	winsSelector,
-	lossesSelector,
-	noDataSelector,
-	label,
-	index
+	playerId: string,
+	page: Page,
+	gameTypeDropdown: string,
+	gameTypeSelector: string,
+	filterButton: string,
+	winsSelector: string,
+	lossesSelector: string,
+	noDataSelector: string,
+	label: string,
+	index: number
 ) {
 	// run this up to 5 times max
 	let attempts = 0;
 	const maxAttempts = 5;
 	while (attempts < maxAttempts) {
 		try {
+			attempts++;
 			// console.log(`${index}: awaiting gameTypeDropdown`);
 			await page.click(gameTypeDropdown);
 			// console.log(`${index}: waiting for gameTypeSelector`);
 			await page.waitForSelector(gameTypeSelector, { timeout: 60000 }); // Wait up to 60 seconds
 			await page.click(gameTypeSelector);
-			// console.log(`${index}: waiting for gameTypeSelector to be detached`);
-			await page.waitForSelector(gameTypeSelector, { detached: true, timeout: 5000 });
+			// console.log(`${index}: waiting for gameTypeSelector to be detached`);\
+			// const options: WaitForSelectorOptions = { detached: true, timeout: 5000 };
+
+			// const options: WaitForSelectorOptions = { hidden: true, timeout: 5000 };
+			// await page.waitForSelector(gameTypeSelector, options);
 
 			await page.click(filterButton);
 			// console.log('Waiting for winsSelector selector...');
@@ -153,13 +171,13 @@ async function getGames(
 				page.waitForSelector(noDataSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
 			]);
 			break;
-		} catch (error) {
+		} catch (error: any) {
 			attempts++;
-			console.log(`Attempt ${attempts} failed. Retrying...`);
+			console.log(`${index}: Attempt ${attempts} failed. Retrying...`);
 			if (error.name === 'TimeoutError') {
-				console.log('Timeout while waiting for wins selector.');
+				console.log(`${index}: Timeout while waiting for wins selector.`);
 			} else {
-				console.error(`Error fetching wins data: ${error.message}`);
+				console.error(`${index}: Error fetching wins data: ${error.message}`);
 			}
 		}
 	}
@@ -169,13 +187,16 @@ async function getGames(
 	// wait for the QM games to load
 	// console.log('getting winsSelector selector...');
 	let wins =
-		parseInt((await page.$eval(winsSelector, el => el.textContent.trim()).catch(() => 'None')).replace(/,/g, '')) || 0;
+		parseInt(
+			(await page.$eval(winsSelector, el => el.textContent?.trim() || 'None').catch(() => 'None')).replace(/,/g, '')
+		) || 0;
 	// console.log('getting lossesSelector selector...');
 	let losses =
-		parseInt((await page.$eval(lossesSelector, el => el.textContent.trim()).catch(() => 'None')).replace(/,/g, '')) ||
-		0;
+		parseInt(
+			(await page.$eval(lossesSelector, el => el?.textContent?.trim() || 'None').catch(() => 'None')).replace(/,/g, '')
+		) || 0;
 
-	const games = (wins === 0) & (losses === 0) ? -1 : wins + losses;
+	const games = wins === 0 && losses === 0 ? -1 : wins + losses;
 	return { games, wins, losses };
 }
 
@@ -185,7 +206,7 @@ async function getGames(
  * @param {number} concurrencyLimit - The maximum number of concurrent tasks.
  * @returns {Promise<Array>} - A promise that resolves to an array of results.
  */
-async function processWithConcurrency(browser, urls, concurrencyLimit = 10) {
+async function processWithConcurrency(browser: Browser, urls: string[], concurrencyLimit = 10) {
 	const results = new Array(urls.length);
 	let taskIndex = 0;
 
@@ -195,7 +216,7 @@ async function processWithConcurrency(browser, urls, concurrencyLimit = 10) {
 		try {
 			const result = await scrapePlayerStats(browser, urls[currentIndex], currentIndex);
 			results[currentIndex] = result;
-		} catch (error) {
+		} catch (error: any) {
 			console.error(`Error processing URL at index ${currentIndex}: ${error.message}`);
 			results[currentIndex] = { qmMmr: 'Error', slMmr: 'Error', qmGames: 'Error', slGames: 'Error' };
 		}
@@ -218,7 +239,12 @@ async function processWithConcurrency(browser, urls, concurrencyLimit = 10) {
  * @param {number} concurrencyLimit - The maximum number of concurrent tasks.
  * @returns {Promise<Array>} - A promise that resolves to an array of player stats.
  */
-async function getPlayerStats(browser, playerUrls, enableConcurrency, concurrencyLimit = 10) {
+async function getPlayerStats(
+	browser: Browser,
+	playerUrls: string[],
+	enableConcurrency: boolean,
+	concurrencyLimit = 10
+) {
 	if (enableConcurrency) {
 		console.log('Concurrency enabled');
 		return processWithConcurrency(browser, playerUrls, concurrencyLimit); // Adjust concurrency limit as needed
@@ -242,11 +268,11 @@ async function main() {
 		}
 		// keep track of the time, so we can see how long it took to run the script
 		const startTime = Date.now();
-		//TODO enable this
+		// read the clipboard
 		const clipboardText = await clipboardy.read(); // Read from clipboard
-		//TODO remove this
+		// use this for testing
 		// const clipboardText = 'https://www.heroesprofile.com/Player/JimmyBobJoe/8034886/1';
-		//TODO option 2
+		// testing with multiple players
 		// 		const clipboardText = `https://www.heroesprofile.com/battletag/searched/Aieeeǃ%231679/alt
 		// https://www.heroesprofile.com/battletag/searched/Akuma%2315567/alt
 		// https://www.heroesprofile.com/Player/Alpharak/9691835/1
@@ -281,19 +307,6 @@ async function main() {
 			return;
 		}
 
-		// const baseUrl = 'https://www.heroesprofile.com/battletag/searched';
-
-		// const allStats = [];
-		// for (const url of playerUrls) {
-		// 	if (!url.startsWith('http')) {
-		// 		console.log(`Invalid URL: ${url}`);
-		// 		continue;
-		// 	}
-		// 	// console.log(`Scraping data for ${url}...`);
-		// 	const stats = await scrapePlayerStats(url);
-		// 	allStats.push(stats);
-		// }
-
 		// check that all playerUrls are valid
 		const invalidUrls = playerUrls.filter(url => !url.startsWith('http'));
 		if (invalidUrls.length > 0) {
@@ -303,14 +316,13 @@ async function main() {
 		}
 
 		// singlethreaded the scraping process
-		const browser = await puppeteer.launch({ headless: 'new' });
+		const browser = await puppeteer.launch({ headless: true });
 		// multithreaded the scraping process
 
 		const enableConcurrency = true; // Set to true to enable concurrency
-		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 10); // Adjust concurrency limit as needed
+		const allStats = await getPlayerStats(browser, playerUrls, enableConcurrency, 5); // Adjust concurrency limit as needed
 
 		await browser.close();
-		console.log(`allStats: ${allStats}, length: ${allStats.length}`);
 
 		if (allStats.length > 0) {
 			const output = allStats
