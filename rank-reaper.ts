@@ -33,7 +33,8 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 		while (attempts < maxAttempts) {
 			try {
 				attempts++;
-				await page.goto(url, { waitUntil: 'networkidle2' });
+				await page.goto(url);
+				await page.waitForNetworkIdle();
 				await page.waitForSelector(qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
 				qmMmr = (await page.$eval(qmMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')).replace(
 					/,/g,
@@ -105,7 +106,7 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 
 function extractPlayerId(url: string) {
 	const playerRegex = /(?:Player\/([^/]+)\/\d+\/|battletag\/searched\/([^%#]+)(?:%23|#)\d+\/alt)/;
-	const match = url.match(playerRegex);
+	const match = RegExp(playerRegex).exec(url);
 
 	if (match?.[1]) {
 		return match[1]; // Player name from /Player/
