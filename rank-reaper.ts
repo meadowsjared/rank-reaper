@@ -44,8 +44,8 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 		while (attempts < maxAttempts) {
 			try {
 				attempts++;
-				await page.goto(url);
-				await page.waitForNetworkIdle();
+				await page.setViewport({ width: 1920, height: 2080 });
+				await page.goto(url, { waitUntil: 'networkidle2' });
 				await page.waitForSelector(selectors.qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
 				qmMmr = (
 					await page.$eval(selectors.qmMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')
@@ -53,8 +53,10 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 				slMmr = (
 					await page.$eval(selectors.slMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')
 				).replace(/,/g, '');
+				break;
 			} catch (error: any) {
 				if (error.name === 'TimeoutError') {
+					await page.screenshot({ path: `./screenshots/debug_${index}.png` });
 					console.log(`${index}: Timeout while waiting for MMR selectors.`);
 				} else {
 					console.error(`${index}: Error fetching MMR data: ${error.message}`);
