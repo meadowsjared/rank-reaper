@@ -133,6 +133,7 @@ async function getGames(
 		} catch (error: any) {
 			attempts++;
 			console.log(`${index}: Attempt ${attempts} failed. Retrying...`);
+			await page.screenshot({ path: `./screenshots/debug_${index}.png` });
 			if (error.name === 'TimeoutError') {
 				console.log(`${index}: Timeout while waiting for wins selector.`);
 			} else {
