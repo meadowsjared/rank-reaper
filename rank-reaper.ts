@@ -44,7 +44,7 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 		while (attempts < maxAttempts) {
 			try {
 				attempts++;
-				await page.setViewport({ width: 1920, height: 2080 });
+				await page.setViewport({ width: 1920, height: 2980 });
 				await page.goto(url, { waitUntil: 'networkidle2' });
 				await page.waitForSelector(selectors.qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
 				qmMmr = (
@@ -64,7 +64,6 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 			}
 		}
 		console.log(`${index} MMR: ${playerName}: QM MMR: ${qmMmr}, SL MMR: ${slMmr}`);
-		await page.setViewport({ width: 1920, height: 1080 });
 
 		// call the get games function
 		const { games: qmGames, wins: qmWins, losses: qmLosses } = await getGames(playerName, page, selectors, 'qm', index);
