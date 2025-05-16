@@ -1,6 +1,25 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import clipboardy from 'clipboardy'; // Using import now
 import { PlayerData, Selectors } from './types'; // Assuming you have a types.ts file for type definitions
+import { writeFileSync, appendFileSync } from 'fs';
+
+// Save original console methods
+const origLog = console.log;
+const origError = console.error;
+
+// Override console.log
+console.log = (...args: any[]) => {
+	const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+	origLog(...args);
+	appendFileSync('latest.log', msg + '\n');
+};
+
+// Override console.error
+console.error = (...args: any[]) => {
+	const msg = args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+	origError(...args);
+	appendFileSync('latest.log', '[ERROR] ' + msg + '\n');
+};
 
 async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 	const page = await browser.newPage();
@@ -270,6 +289,11 @@ async function main() {
 			console.log(clipboardText);
 			console.log('');
 		}
+
+		const now = new Date().toLocaleString();
+		// Overwrite the log file at the start
+		const numberedUrls = playerUrls.map((url, i) => `${i}: ${url}`).join('\n');
+		writeFileSync('latest.log', `=== Run at ${now} ===\nPlayer URLs (${playerUrls.length}):\n${numberedUrls}\n\n`);
 
 		const browser = await puppeteer.launch({ headless: true });
 
