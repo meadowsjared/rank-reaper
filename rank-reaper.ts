@@ -57,31 +57,24 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 	try {
 		let qmMmr = 'None';
 		let slMmr = 'None';
-		// close the page
-		let attempts = 0;
-		const maxAttempts = 5;
-		while (attempts < maxAttempts) {
-			try {
-				attempts++;
-				await page.setViewport({ width: 1920, height: 2980 });
-				await page.goto(url, { waitUntil: 'networkidle2' });
-				await page.waitForSelector(selectors.qmMmrSelector, { timeout: 4 * 60000 }); // Wait up to 60 seconds
-				qmMmr = (
-					await page.$eval(selectors.qmMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')
-				).replace(/,/g, '');
-				slMmr = (
-					await page.$eval(selectors.slMmrSelector, el => el?.textContent?.trim() ?? 'None').catch(() => 'None')
-				).replace(/,/g, '');
-				break;
-			} catch (error: any) {
-				if (error.name === 'TimeoutError') {
-					await page.screenshot({ path: `./screenshots/debug_${index}.png` });
-					console.log(`${index}: Timeout while waiting for MMR selectors.`);
-				} else {
-					console.error(`${index}: Error fetching MMR data: ${error.message}`);
-				}
+		await page.setViewport({ width: 1920, height: 2980 });
+		await page.goto(url, { waitUntil: 'networkidle2' });
+		// wait for the page to load
+		await page.waitForSelector('h4', { timeout: 60000 });
+
+		page.on('console', msg => {
+			// Forward browser logs to Node.js console
+			const type = msg.type();
+			const text = msg.text();
+			if (type === 'error') {
+				console.error(`[browser] ${text}`);
+			} else {
+				console.log(`[browser] ${text}`);
 			}
-		}
+		});
+		qmMmr = await getMMR(page, index, playerName, 'Quick Match');
+		slMmr = await getMMR(page, index, playerName, 'Storm league');
+
 		console.log(`${index} MMR: ${playerName}: QM MMR: ${qmMmr}, SL MMR: ${slMmr}`);
 
 		// call the get games function
