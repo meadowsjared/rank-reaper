@@ -314,8 +314,12 @@ async function main() {
 			console.log('No data scraped.');
 		}
 		const endTime = Date.now();
-		const elapsedTime = ((endTime - startTime) / 1000).toFixed(2);
-		console.log(`Elapsed time: ${elapsedTime} seconds`);
+		const elapsedTime = (endTime - startTime) / 1000;
+		console.log(
+			`Elapsed time: ${elapsedTime.toFixed(2)} seconds / ${allStats.length} players = ${(
+				elapsedTime / allStats.length
+			).toFixed(2)} seconds per player`
+		);
 	} catch (error) {
 		console.error('An error occurred:', error);
 	}
