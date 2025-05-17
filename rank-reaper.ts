@@ -308,9 +308,8 @@ async function main() {
 			const output = allStats
 				.map(stats => `${stats.qmMmr}\t ${stats.slMmr}\t ${stats.qmGames}\t ${stats.slGames}`)
 				.join('\n');
-			console.log(`Scraped data:\n${output}`);
 			await clipboardy.write(output); // Using clipboardy directly now
-			console.log('Scraped data copied to clipboard.');
+			console.log(`Scraped data copied to clipboard:\n${output}`);
 		} else {
 			console.log('No data scraped.');
 		}
