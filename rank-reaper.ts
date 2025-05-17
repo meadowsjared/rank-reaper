@@ -103,6 +103,51 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 	}
 }
 
+/**
+	This function retrieves the MMR value for a specific player for a given row name.
+ * @param {puppeteer.Page} page - The Puppeteer page instance.
+ * @param {number} index - The index of the player in the list.
+ * @param {string} playerName - The name of the player.
+ * @param {string} rowName - The name of the row to find.
+ * @returns {Promise<string>} - A promise that resolves to the MMR value as a string.
+ */
+async function getMMR(page: Page, index: number, playerName: string, rowName: string): Promise<string> {
+	return await page.evaluate(
+		({ index, playerName, rowName }) => {
+			try {
+				const h4s = Array.from(document.getElementsByTagName('h4'));
+				const h4Match = h4s.find(h4 => h4.textContent?.includes(rowName));
+				if (!h4Match) {
+					console.log(`Quick Match NOT found for ${playerName}`);
+					return '';
+				}
+				// Find the 4th sibling of the h4 element
+				let sibling: Element = h4Match;
+				for (let i = 0; i < 3; i++) {
+					if (sibling?.nextElementSibling) {
+						sibling = sibling.nextElementSibling;
+					} else {
+						console.log(`Sibling NOT found for ${playerName}`);
+						return '';
+					}
+				}
+				const secondChild = sibling?.children?.[0]?.children?.[1];
+				if (secondChild) {
+					// Second child found for ${playerName}
+					return secondChild.innerHTML.replace(/,/g, '');
+				} else {
+					console.log(`Second child NOT found for ${playerName}`);
+					return '';
+				}
+			} catch (error: any) {
+				console.error(`[${index}] Error waiting for ${rowName} selector:\n${error.message}`);
+				return '';
+			}
+		},
+		{ index, playerName, rowName }
+	);
+}
+
 function extractPlayerId(url: string) {
 	const playerRegex = /(?:Player\/([^/]+)\/\d+\/|battletag\/searched\/([^%#]+)(?:%23|#)\d+\/alt)/;
 	const match = RegExp(playerRegex).exec(url);
