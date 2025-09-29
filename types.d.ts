@@ -1,11 +1,11 @@
-export interface PlayerData {
+export interface HPData {
 	qmMmr: number | string;
 	slMmr: number | string;
 	qmGames: number | string;
 	slGames: number | string;
 }
 
-export interface Selectors {
+export interface HPSelectors {
 	qmMmrSelector: string;
 	slMmrSelector: string;
 	gameTypeDropdown: string;

@@ -1,6 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import clipboardy from 'clipboardy'; // Using import now
-import { PlayerData, Selectors } from './types'; // Assuming you have a types.ts file for type definitions
+import { HPData, HPSelectors } from './types'; // Assuming you have a types.ts file for type definitions
 import { writeFileSync, appendFileSync } from 'fs';
 
 // Save original console methods
@@ -21,7 +21,7 @@ console.error = (...args: any[]) => {
 	appendFileSync('latest.log', '[ERROR] ' + msg + '\n');
 };
 
-async function scrapePlayerStats(browser: Browser, url: string, index: number): Promise<PlayerData> {
+async function scrapePlayerStats(browser: Browser, url: string, index: number): Promise<HPData> {
 	const page = await browser.newPage();
 	const playerName = extractPlayerId(url);
 
@@ -42,7 +42,7 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number): 
 		'#app > div:nth-child(8) > div:nth-child(4) > div.flex.md\\:p-20.gap-10.mx-auto.justify-center.items-between.max-md\\:flex-col.max-md\\:items-center > div.flex-1.flex.flex-wrap.justify-between.max-w-\\[400px\\].w-full.items-between.mt-\\[1em\\].max-md\\:order-1 > div:nth-child(2) > div > div';
 	const noDataSelector =
 		'#app > div:nth-child(8) > div.flex.md\\:p-20.gap-10.mx-auto.justify-center.items-between > div > span';
-	const selectors: Selectors = {
+	const selectors: HPSelectors = {
 		qmMmrSelector,
 		slMmrSelector,
 		gameTypeDropdown,
@@ -195,7 +195,7 @@ function extractPlayerId(url: string) {
  * fetches the number of wins and losses for the current player
  * @param {string} playerId - The player ID to be used in the screenshot filename.
  * @param {puppeteer.Page} page - The Puppeteer page instance.
- * @param {Selectors} selectors - The selectors object containing the CSS selectors for the page elements.
+ * @param {HPSelectors} selectors - The selectors object containing the CSS selectors for the page elements.
  * @param {'qm' | 'sl'} label - The game type label ('qm' for Quick Match, 'sl' for Storm League).
  * @param {number} index - The index of the player in the list.
  * @returns {Promise<{games: number;wins: number;losses: number;}>} - An object containing the number of games, wins, and losses.
@@ -203,7 +203,7 @@ function extractPlayerId(url: string) {
 async function getGames(
 	playerId: string,
 	page: Page,
-	selectors: Selectors,
+	selectors: HPSelectors,
 	label: 'qm' | 'sl',
 	index: number,
 	playerName: string
@@ -270,7 +270,7 @@ async function processWithConcurrency(
 	urls: string[],
 	concurrencyLimit: number = 10
 ): Promise<Array<any>> {
-	const results: PlayerData[] = [];
+	const results: HPData[] = [];
 	let taskIndex = 0;
 
 	const runNext = async () => {
@@ -300,7 +300,7 @@ async function processWithConcurrency(
  * @param playerUrls
  * @returns
  */
-async function processWithoutConcurrency(browser: Browser, playerUrls: string[]): Promise<PlayerData[]> {
+async function processWithoutConcurrency(browser: Browser, playerUrls: string[]): Promise<HPData[]> {
 	const allStatsProm = playerUrls.map((url, index) => {
 		// call the scrapePlayerStats function for each url
 		return scrapePlayerStats(browser, url, index);
