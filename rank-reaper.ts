@@ -21,7 +21,7 @@ console.error = (...args: any[]) => {
 	appendFileSync('latest.log', '[ERROR] ' + msg + '\n');
 };
 
-async function scrapePlayerStats(browser: Browser, url: string, index: number) {
+async function scrapePlayerStats(browser: Browser, url: string, index: number): Promise<PlayerData> {
 	const page = await browser.newPage();
 	const playerName = extractPlayerId(url);
 
@@ -54,46 +54,82 @@ async function scrapePlayerStats(browser: Browser, url: string, index: number) {
 		noDataSelector,
 	};
 
-	try {
-		let qmMmr = 'None';
-		let slMmr = 'None';
-		await page.setViewport({ width: 1920, height: 2980 });
-		await page.goto(url, { waitUntil: 'networkidle2' });
-		// wait for the page to load
-		await page.waitForSelector('h4', { timeout: 60000 });
+	let qmMmr = 'None';
+	let slMmr = 'None';
+	let slGames = 'None';
+	let qmGames = 'None';
+	let qmWins = 0;
+	let qmLosses = 0;
+	let slWins = 0;
+	let slLosses = 0;
+	// run this up to 5 times max
+	let attempts = 0;
+	const maxAttempts = 5;
+	await page.setViewport({ width: 1920, height: 2980 });
+	while (attempts < maxAttempts) {
+		try {
+			attempts++;
+			await page.goto(url, { waitUntil: 'networkidle2' });
+			// wait for the page to load
+			await page.waitForSelector('h4', { timeout: 10000 });
 
-		page.on('console', msg => {
-			// Forward browser logs to Node.js console
-			const type = msg.type();
-			const text = msg.text();
-			if (type === 'error') {
-				console.error(`[browser] ${text}`);
+			page.on('console', msg => {
+				// Forward browser logs to Node.js console
+				const type = msg.type();
+				const text = msg.text();
+				if (type === 'error') {
+					console.error(`[browser] ${text}`);
+				} else {
+					console.log(`[browser] ${text}`);
+				}
+			});
+			qmMmr = await getMMR(page, index, playerName, 'Quick Match');
+			slMmr = await getMMR(page, index, playerName, 'Storm league');
+
+			console.log(`${index} MMR: ${playerName}: QM MMR: ${qmMmr}, SL MMR: ${slMmr}`);
+
+			// call the get games function
+			const qmResult = await getGames(playerName, page, selectors, 'qm', index, playerName);
+			qmGames = qmResult.games.toString();
+			qmWins = qmResult.wins;
+			qmLosses = qmResult.losses;
+
+			console.log(`${index} QM: ${playerName}: QM Games: ${qmGames} = ${qmWins} + ${qmLosses}`);
+
+			// call the get games function
+			const slResults = await getGames(playerName, page, selectors, 'sl', index, playerName);
+			slGames = slResults.games.toString();
+			slWins = slResults.wins;
+			slLosses = slResults.losses;
+			console.log(`${index} SL: ${playerName}: SL Games: ${slGames} = ${slWins} + ${slLosses}`);
+
+			await page.close();
+			return { qmMmr, slMmr, qmGames, slGames };
+		} catch (error: any) {
+			// take a screenshot
+			await page.screenshot({ path: `./screenshots/debug_${index}_${playerName}.png` });
+			console.error(`${index}: ${playerName}: Error scraping data for ${url}: ${error.message}`);
+			console.error(error);
+			if (attempts >= maxAttempts - 1) {
+				console.error(`${index}: ${playerName}: Max attempts reached. Skipping this player.`);
+				await page.close();
+				return {
+					qmMmr: qmMmr !== 'None' ? qmMmr : 'Error',
+					slMmr: slMmr !== 'None' ? slMmr : 'Error',
+					qmGames: qmGames !== 'None' ? qmGames : 'Error',
+					slGames: slGames !== 'None' ? slGames : 'Error',
+				};
 			} else {
-				console.log(`[browser] ${text}`);
+				console.log(`${index}: ${playerName}: Retrying... (Attempt ${attempts}/${maxAttempts}) for ${playerName}`);
 			}
-		});
-		qmMmr = await getMMR(page, index, playerName, 'Quick Match');
-		slMmr = await getMMR(page, index, playerName, 'Storm league');
-
-		console.log(`${index} MMR: ${playerName}: QM MMR: ${qmMmr}, SL MMR: ${slMmr}`);
-
-		// call the get games function
-		const { games: qmGames, wins: qmWins, losses: qmLosses } = await getGames(playerName, page, selectors, 'qm', index);
-		console.log(`${index} QM: ${playerName}: QM Games: ${qmGames} = ${qmWins} + ${qmLosses}`);
-
-		// call the get games function
-		const { games: slGames, wins: slWins, losses: slLosses } = await getGames(playerName, page, selectors, 'sl', index);
-		console.log(`${index} SL: ${playerName}: SL Games: ${slGames} = ${slWins} + ${slLosses}`);
-
-		await page.close();
-		return { qmMmr, slMmr, qmGames, slGames };
-	} catch (error: any) {
-		// show the line number and the error message
-		console.error(`${index}: ${playerName}: Error scraping data for ${url}: ${error.message}`);
-		console.error(error);
-		await page.close();
-		return { qmMmr: 'Error', slMmr: 'Error', qmGames: 'Error', slGames: 'Error' };
+		}
 	}
+	return {
+		qmMmr: qmMmr !== 'None' ? qmMmr : 'Error',
+		slMmr: slMmr !== 'None' ? slMmr : 'Error',
+		qmGames: qmGames !== 'None' ? qmGames : 'Error',
+		slGames: slGames !== 'None' ? slGames : 'Error',
+	};
 }
 
 /**
@@ -169,7 +205,8 @@ async function getGames(
 	page: Page,
 	selectors: Selectors,
 	label: 'qm' | 'sl',
-	index: number
+	index: number,
+	playerName: string
 ): Promise<{ games: number; wins: number; losses: number }> {
 	// run this up to 5 times max
 	let attempts = 0;
@@ -178,24 +215,25 @@ async function getGames(
 		try {
 			attempts++;
 			await page.click(selectors.gameTypeDropdown);
-			await page.waitForSelector(selectors[`${label}GameTypeSelector`], { timeout: 60000 }); // Wait up to 60 seconds
+			await page.waitForSelector(selectors[`${label}GameTypeSelector`], { timeout: 10000 }); // Wait up to 60 seconds
 			await page.click(selectors[`${label}GameTypeSelector`]);
 
 			await page.click(selectors.filterButton);
 			await Promise.race([
-				page.waitForSelector(selectors.winsSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
-				page.waitForSelector(selectors.noDataSelector, { timeout: 4 * 60000 }), // Wait up to 60 seconds
+				page.waitForSelector(selectors.winsSelector, { timeout: 10000 }), // Wait up to 60 seconds
+				page.waitForSelector(selectors.noDataSelector, { timeout: 10000 }), // Wait up to 60 seconds
 			]);
 			break;
 		} catch (error: any) {
 			attempts++;
-			console.log(`${index}: Attempt ${attempts} failed. Retrying...`);
-			await page.screenshot({ path: `./screenshots/debug_${index}.png` });
+			console.log(`${index}: Attempt ${attempts} failed for ${index}_${playerName}. Retrying...`, error);
+			await page.screenshot({ path: `./screenshots/debug_${index}_${playerName}_${attempts}.png` });
 			if (error.name === 'TimeoutError') {
 				console.log(`${index}: Timeout while waiting for wins selector.`);
 			} else {
 				console.error(`${index}: Error fetching wins data: ${error.message}`);
 			}
+			await page.reload({ waitUntil: 'networkidle2' }); // Reload the page to reset state
 		}
 	}
 
